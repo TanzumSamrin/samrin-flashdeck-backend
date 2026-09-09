@@ -1,4 +1,3 @@
-from django.db.models import Count, Q
 from rest_framework import serializers
 
 from .models import Deck
@@ -21,6 +20,7 @@ class DeckSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
+
         read_only_fields = [
             "id",
             "card_count",
@@ -38,7 +38,9 @@ class DeckSerializer(serializers.ModelSerializer):
         )
 
         if self.instance:
-            queryset = queryset.exclude(pk=self.instance.pk)
+            queryset = queryset.exclude(
+                pk=self.instance.pk
+            )
 
         if queryset.exists():
             raise serializers.ValidationError(
@@ -46,3 +48,12 @@ class DeckSerializer(serializers.ModelSerializer):
             )
 
         return value
+
+
+class StudyDeckSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Deck
+        fields = [
+            "id",
+            "title",
+        ]
