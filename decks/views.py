@@ -1,5 +1,7 @@
 from django.db.models import Count, Q
 from django.utils import timezone
+from django.contrib.auth.models import User
+from rest_framework.views import APIView
 
 from django_filters.rest_framework import DjangoFilterBackend
 
@@ -107,3 +109,79 @@ class DeckViewSet(viewsets.ModelViewSet):
             },
             status=status.HTTP_200_OK,
         )
+
+    
+class StatsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        now = timezone.now()
+        today = now.date()
+
+        cards = Card.objects.filter(
+            deck__owner=request.user
+        )
+
+        decks_count = Deck.objects.filter(
+            owner=request.user
+        ).count()
+
+        cards_count = cards.count()
+
+        due_now = cards.filter(
+            next_review_at__lte=now
+        ).count()
+
+        mastered = cards.filter(
+            box=5
+        ).count()
+
+        reviewed_today = cards.filter(
+            last_reviewed_at__date=today
+        ).count()
+
+        total_reviews = sum(
+            cards.values_list(
+                "times_reviewed",
+                flat=True
+            )
+        )
+
+        total_correct = sum(
+            cards.values_list(
+                "times_correct",
+                flat=True
+            )
+        )
+
+        if total_reviews == 0:
+            accuracy = 0
+        else:
+            accuracy = round(
+                100 * total_correct / total_reviews
+            )
+
+        box_data = cards.values("box").annotate(
+            count=Count("id")
+        )
+
+        boxes = {
+            1: 0,
+            2: 0,
+            3: 0,
+            4: 0,
+            5: 0,
+        }
+
+        for item in box_data:
+            boxes[item["box"]] = item["count"]
+
+        return Response({
+            "decks": decks_count,
+            "cards": cards_count,
+            "due_now": due_now,
+            "mastered": mastered,
+            "reviewed_today": reviewed_today,
+            "accuracy": accuracy,
+            "boxes": boxes,
+        })
